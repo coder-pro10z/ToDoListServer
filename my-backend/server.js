@@ -281,6 +281,97 @@
 // });
 
 
+// const express = require('express');
+// const sql = require('mssql');
+// const bodyParser = require('body-parser');
+// const cors = require('cors');
+// require('dotenv').config();
+
+// const app = express();
+// const port = 1433;
+
+// app.use(cors());
+// app.use(bodyParser.json());
+
+// // Configure database connection
+// const config = {
+//     user: process.env.DB_USER,
+//     password: process.env.DB_PASSWORD,
+//     server: process.env.DB_SERVER,
+//     database: process.env.DB_NAME,
+//     options: {
+//         encrypt: true,
+//         trustServerCertificate: true,
+//         connectTimeout: 30000 // Optional: Timeout setting for connections
+//     }
+// };
+
+// // Establish a connection pool
+// const poolPromise = sql.connect(config)
+//     .then(pool => {
+//         if (pool.connected) {
+//             console.log('Connected to SQL database.');
+//         }
+//         return pool;
+//     })
+//     .catch(err => {
+//         console.error('Failed to connect to the database:', err);
+//         process.exit(1);  // Exit process if database connection fails
+//     });
+
+// // API endpoint to get the list of tasks
+// // app.get('/api/tasks', async (req, res) => {
+// //     try {
+// //         const pool = await poolPromise;
+// //         const result = await pool.request()
+// //             .query('SELECT TaskId, Description FROM tasks');
+
+// //         res.json(result.recordset);
+// //     } catch (err) {
+// //         console.error('Error fetching tasks:', err);
+// //         res.status(500).send({ message: 'Error fetching tasks', error: err });
+// //     }
+// //});
+
+// app.get('/api/tasks', async (req, res) => {
+//     try {
+//         const pool = await poolPromise;
+//         const result = await pool.request()
+//             .execute('GetTasks'); // Execute the stored procedure
+
+//         res.json(result.recordset);
+//     } catch (err) {
+//         console.error('Error fetching tasks:', err);
+//         res.status(500).send({ message: 'Error fetching tasks', error: err });
+//     }
+// }); 
+
+// //API Endpoint to Add Tasks
+// app.post('/api/task', async (req,res)=>{
+//     const {description}=req.body;
+//     // console.log(description)
+//     if (!description){
+//         return res.status(400).send({message: 'Task Description is reqiured'});
+//     }
+//     try{
+//         const pool=await poolPromise;
+//         const result=await pool.request()
+//         .input('Description',sql.NVarChar,description)
+//         .execute('AddTask')
+
+//     }
+//     catch(err){
+//         console.log('Error adding task:',err);
+//         res.status(500).send({message:'Error Adding Task',error:err.message });
+//     }
+// })
+
+// // Start server
+// app.listen(port, () => {
+//     console.log(`Server running on port ${port}`);
+// });
+
+
 const express = require('express');
 const sql = require('mssql');
 const bodyParser = require('body-parser');
@@ -324,12 +415,37 @@ app.get('/api/tasks', async (req, res) => {
     try {
         const pool = await poolPromise;
         const result = await pool.request()
-            .query('SELECT TaskId, Description FROM tasks');
+            .execute('GetTasks'); // Execute the stored procedure
 
         res.json(result.recordset);
     } catch (err) {
         console.error('Error fetching tasks:', err);
         res.status(500).send({ message: 'Error fetching tasks', error: err });
+    }
+});
+
+// API endpoint to add a task
+app.post('/api/tasks', async (req, res) => {
+    const { description } = req.body;
+    
+    if (!description) {
+        return res.status(400).json({ message: 'Task description is required' });
+    }
+
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input('Description', sql.NVarChar, description)
+            // .output('TaskId', sql.Int)
+            .execute('AddTask'); // Execute the stored procedure
+            
+        // Assuming the stored procedure returns the new task ID
+        const taskId = result.recordset[0].TaskId; // Adjust if needed
+        res.status(201).json({ message: 'Task added',taskId});
+        // res.status(201).json({ message: 'Task added',taskId});
+    } catch (err) {
+        console.error('Error adding task:', err);
+        res.status(500).json({ message: 'Error adding task', error: err.message });
     }
 });
 
