@@ -22,8 +22,6 @@
 // //     }
 // // };
 
-
-
 // // // Establish a connection to the database
 // // sql.connect(config).then(pool => {
 // //     if (pool.connecting) {
@@ -119,7 +117,6 @@
 // // app.listen(port, () => {
 // //     console.log(`Server running on port ${port}`);
 // // });
-
 
 // // const express = require('express');
 // // const sql = require('mssql');
@@ -238,7 +235,6 @@
 //     }
 // });
 
-
 // app.post('/api/tasks', async (req, res) => {
 //     try {
 //         await sql.connect(config);
@@ -275,11 +271,9 @@
 // //     });
 // // });
 
-
 // app.listen(port, () => {
 //     console.log(`Server running on port ${port}`);
 // });
-
 
 // const express = require('express');
 // const sql = require('mssql');
@@ -344,7 +338,7 @@
 //         console.error('Error fetching tasks:', err);
 //         res.status(500).send({ message: 'Error fetching tasks', error: err });
 //     }
-// }); 
+// });
 
 // //API Endpoint to Add Tasks
 // app.post('/api/task', async (req,res)=>{
@@ -371,12 +365,11 @@
 //     console.log(`Server running on port ${port}`);
 // });
 
-
-const express = require('express');
-const sql = require('mssql');
-const bodyParser = require('body-parser');
-const cors = require('cors');
-require('dotenv').config();
+const express = require("express");
+const sql = require("mssql");
+const bodyParser = require("body-parser");
+const cors = require("cors");
+require("dotenv").config();
 
 const app = express();
 const port = 1433;
@@ -386,70 +379,108 @@ app.use(bodyParser.json());
 
 // Configure database connection
 const config = {
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    server: process.env.DB_SERVER,
-    database: process.env.DB_NAME,
-    options: {
-        encrypt: true,
-        trustServerCertificate: true,
-        connectTimeout: 30000 // Optional: Timeout setting for connections
-    }
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  server: process.env.DB_SERVER,
+  database: process.env.DB_NAME,
+  options: {
+    encrypt: true,
+    trustServerCertificate: true,
+    connectTimeout: 30000, // Optional: Timeout setting for connections
+  },
 };
 
 // Establish a connection pool
-const poolPromise = sql.connect(config)
-    .then(pool => {
-        if (pool.connected) {
-            console.log('Connected to SQL database.');
-        }
-        return pool;
-    })
-    .catch(err => {
-        console.error('Failed to connect to the database:', err);
-        process.exit(1);  // Exit process if database connection fails
-    });
+const poolPromise = sql
+  .connect(config)
+  .then((pool) => {
+    if (pool.connected) {
+      console.log("Connected to SQL database.");
+    }
+    return pool;
+  })
+  .catch((err) => {
+    console.error("Failed to connect to the database:", err);
+    process.exit(1); // Exit process if database connection fails
+  });
 
 // API endpoint to get the list of tasks
-app.get('/api/tasks', async (req, res) => {
-    try {
-        const pool = await poolPromise;
-        const result = await pool.request()
-            .execute('GetTasks'); // Execute the stored procedure
+app.get("/api/tasks", async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    const result = await pool.request().execute("GetTasks"); // Execute the stored procedure
 
-        res.json(result.recordset);
-    } catch (err) {
-        console.error('Error fetching tasks:', err);
-        res.status(500).send({ message: 'Error fetching tasks', error: err });
-    }
+    res.json(result.recordset);
+  } catch (err) {
+    console.error("Error fetching tasks:", err);
+    res.status(500).send({ message: "Error fetching tasks", error: err });
+  }
 });
 
 // API endpoint to add a task
-app.post('/api/tasks', async (req, res) => {
-    const { description } = req.body;
-    
-    if (!description) {
-        return res.status(400).json({ message: 'Task description is required' });
+app.post("/api/tasks", async (req, res) => {
+  const { description } = req.body;
+
+  if (!description) {
+    return res.status(400).json({ message: "Task description is required" });
+  }
+
+  try {
+    const pool = await poolPromise;
+    const result = await pool
+      .request()
+      .input("Description", sql.NVarChar, description)
+      // .output('TaskId', sql.Int)
+      .execute("AddTask"); // Execute the stored procedure
+
+    // Assuming the stored procedure returns the new task ID
+    const taskId = result.recordset[0].TaskId; // Adjust if needed
+    res.status(201).json({ message: "Task added", taskId });
+    // res.status(201).json({ message: 'Task added',taskId});
+  } catch (err) {
+    console.error("Error adding task:", err);
+    res.status(500).json({ message: "Error adding task", error: err.message });
+  }
+});
+
+//API Endpoint to DELETE Task
+
+app.delete("/api/tasks/:id", async (req, res) => {
+  const taskId = parseInt(req.params.id);
+  // try block
+//   console.log("")
+
+  if (isNaN(taskId)) {
+    return res.status(400).json({ message: "Invalid task ID format.",taskId });
+  }
+  try {
+    console.log("");
+    const pool = await poolPromise;
+    const result = await pool
+      .request()
+      .input("TaskId", sql.Int, taskId)
+      .execute("DeleteTask");
+
+    const affectedRows = result.rowsAffected[0];
+    if (affectedRows === 0) {
+      return res
+        .status(404)
+        .json({ message: `Task with ID ${taskId} not found.` });
     }
 
-    try {
-        const pool = await poolPromise;
-        const result = await pool.request()
-            .input('Description', sql.NVarChar, description)
-            // .output('TaskId', sql.Int)
-            .execute('AddTask'); // Execute the stored procedure
-            
-        // Assuming the stored procedure returns the new task ID
-        const taskId = result.recordset[0].TaskId; // Adjust if needed
-        res.status(201).json({ message: 'Task added',taskId});
-        // res.status(201).json({ message: 'Task added',taskId});
-    } catch (err) {
-        console.error('Error adding task:', err);
-        res.status(500).json({ message: 'Error adding task', error: err.message });
-    }
+    res
+      .status(200)
+      .json({ message: `Task with ID ${taskId} deleted successfully.` });
+  } catch (err) {
+    console.log("Error deleting task", err);
+    res
+      .status(500)
+      .json({ message: "Error deleting task", error: err.message });
+  }
+  //catch block
 });
 
 // Start server
 app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
+  console.log(`Server running on port ${port}`);
 });
