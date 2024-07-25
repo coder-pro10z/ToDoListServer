@@ -480,6 +480,35 @@ app.delete("/api/tasks/:id", async (req, res) => {
   //catch block
 });
 
+//API Endpoint to UPDATE Task
+app.put('/api/tasks/update',async(req,res)=>{
+        // const {description}=req.body;
+        const {taskId,description}=req.body;
+        // const {taskId}=parseInt(req.params.id);
+        // const taskId = parseInt(req.params.id);
+
+        
+        console.log(description,taskId)
+})
+
+
+// Endpoint to update a task using .execute
+app.put('/api/tasks/update', async (req, res) => {
+    const { taskId, description } = req.body;
+  
+    try {
+      const pool = await poolPromise;
+      await pool.request()
+        .input('TaskId', sql.Int, taskId)
+        .input('Description', sql.NVarChar, description)
+        .execute('UpdateTask'); // Use .execute to call the stored procedure
+      res.status(200).json({ message: 'Task updated successfully' });
+    } catch (error) {
+      console.error('Error updating task:', error);
+      res.status(500).send(error.message);
+    }
+  });
+
 // Start server
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
